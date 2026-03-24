@@ -63,17 +63,37 @@
     const baseUrl =
       "https://apps.powerapps.com/play/e/03e37238-93d6-e73a-94d2-365ac9250340/a/cbeef0b5-914d-48d3-97c3-9dc29e1376cd?tenantId=1797eb83-13d8-42de-b502-001bdf9452a4&hint=fe689c85-05ae-476f-bfe1-e313f3756c00&sourcetime=1773147614812&source=iframe";
 
+    function enc(v) {
+      return encodeURIComponent(v || "");
+    }
+
     function buildPowerAppUrl() {
       let subject = "";
       let itemId = "";
+      let restItemId = "";
       let mailbox = "";
 
       try {
         if (typeof Office !== "undefined" && Office.context && Office.context.mailbox) {
-          const item = Office.context.mailbox.item;
-          subject = encodeURIComponent(item?.subject || "");
-          itemId = encodeURIComponent(item?.itemId || "");
-          mailbox = encodeURIComponent(Office.context.mailbox.userProfile?.emailAddress || "");
+          const mbx = Office.context.mailbox;
+          const item = mbx.item;
+
+          subject = enc(item?.subject || "");
+          itemId = enc(item?.itemId || "");
+          mailbox = enc(mbx.userProfile?.emailAddress || "");
+
+          if (item?.itemId) {
+            try {
+              restItemId = enc(
+                mbx.convertToRestId(
+                  item.itemId,
+                  Office.MailboxEnums.RestVersion.v2_0
+                )
+              );
+            } catch (e) {
+              console.warn("REST-ID konnte nicht erzeugt werden:", e);
+            }
+          }
         }
       } catch (e) {
         console.warn("Kein Outlook-Kontext verfügbar:", e);
@@ -83,6 +103,7 @@
         baseUrl +
         "&subject=" + subject +
         "&itemId=" + itemId +
+        "&restItemId=" + restItemId +
         "&mailbox=" + mailbox
       );
     }
@@ -91,8 +112,7 @@
       const frame = document.getElementById("appFrame");
       const loading = document.getElementById("loading");
 
-      const url = buildPowerAppUrl();
-      frame.src = url;
+      frame.src = buildPowerAppUrl();
 
       frame.onload = function () {
         loading.style.display = "none";
